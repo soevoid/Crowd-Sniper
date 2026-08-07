@@ -1,0 +1,83 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/game_manager.gd" id="1_gm"]
+[ext_resource type="Script" path="res://scripts/gameplay/backdrop.gd" id="2_bd"]
+[ext_resource type="Script" path="res://scripts/gameplay/crowd_manager.gd" id="3_cm"]
+[ext_resource type="Script" path="res://scripts/gameplay/aim_controller.gd" id="4_ac"]
+[ext_resource type="Script" path="res://scripts/gameplay/scope_vignette.gd" id="5_sv"]
+[ext_resource type="Script" path="res://scripts/gameplay/crosshair.gd" id="6_cr"]
+[ext_resource type="Script" path="res://scripts/gameplay/target_manager.gd" id="7_tm"]
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="8_hd"]
+[ext_resource type="Script" path="res://scripts/ui/debug_panel.gd" id="9_dp"]
+
+[node name="Game" type="Node2D" unique_id=1346463185]
+script = ExtResource("1_gm")
+
+[node name="Backdrop" type="Node2D" parent="." unique_id=432189986]
+z_index = -10
+script = ExtResource("2_bd")
+
+[node name="Camera" type="Camera2D" parent="." unique_id=1441285390]
+position = Vector2(540, 960)
+
+[node name="Crowd" type="Node2D" parent="." unique_id=710344583]
+script = ExtResource("3_cm")
+
+[node name="Effects" type="Node2D" parent="." unique_id=752265999]
+
+[node name="AimController" type="Node2D" parent="." unique_id=527926931]
+script = ExtResource("4_ac")
+
+[node name="ScopeVignette" type="Node2D" parent="AimController" unique_id=766710637]
+z_index = 500
+script = ExtResource("5_sv")
+
+[node name="Crosshair" type="Node2D" parent="AimController" unique_id=714497430]
+z_index = 600
+script = ExtResource("6_cr")
+
+[node name="FlashLayer" type="CanvasLayer" parent="." unique_id=1278556868]
+layer = 6
+
+[node name="Flash" type="ColorRect" parent="FlashLayer" unique_id=1583884623]
+modulate = Color(1, 1, 1, 0)
+offset_right = 1080.0
+offset_bottom = 1920.0
+mouse_filter = 2
+color = Color(1, 0.97, 0.9, 1)
+
+[node name="TargetManager" type="CanvasLayer" parent="." unique_id=1255254815]
+layer = 7
+script = ExtResource("7_tm")
+
+[node name="Dimmer" type="ColorRect" parent="TargetManager" unique_id=1667690463]
+offset_right = 1080.0
+offset_bottom = 1920.0
+mouse_filter = 2
+color = Color(0.02, 0.03, 0.05, 0.9)
+
+[node name="WantedLabel" type="Label" parent="TargetManager" unique_id=2101840842]
+offset_left = 40.0
+offset_top = 200.0
+offset_right = 1040.0
+offset_bottom = 360.0
+theme_override_colors/font_color = Color(0.95, 0.85, 0.6, 1)
+theme_override_font_sizes/font_size = 88
+text = "MEMORIZE THE TARGET"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="CardFrame" type="Panel" parent="TargetManager" unique_id=569364057]
+offset_left = 812.0
+offset_top = 48.0
+offset_right = 1004.0
+offset_bottom = 252.0
+
+[node name="PortraitHolder" type="Node2D" parent="TargetManager" unique_id=1498156181]
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1863736498]
+script = ExtResource("8_hd")
+
+[node name="DebugPanel" type="CanvasLayer" parent="." unique_id=1168789893]
+script = ExtResource("9_dp")

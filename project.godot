@@ -11,9 +11,13 @@ config_version=5
 [application]
 
 config/name="Crowd Sniper"
-run/main_scene="res://scenes/test/test_scene.tscn"
+run/main_scene="res://scenes/game/game.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
+
+[autoload]
+
+Analytics="*res://autoload/analytics.gd"
 
 [display]
 
