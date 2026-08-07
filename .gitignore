@@ -4,6 +4,7 @@
 
 # Godot export artifacts
 export_presets.cfg
+/build/
 *.tmp
 
 # OS
