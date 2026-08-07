@@ -27,6 +27,7 @@ var _search_start_ms := 0
 
 
 func _ready() -> void:
+	aim.camera = camera
 	aim.shot_fired.connect(_on_shot_fired)
 	target_manager.intro_finished.connect(_on_intro_finished)
 	debug_panel.restart_requested.connect(func () -> void: start_level(level))
@@ -101,7 +102,8 @@ func _on_target_hit(target: CrowdCharacter) -> void:
 	Analytics.log_event("target_found", {"search_time_ms": search_ms})
 	Analytics.log_event("level_complete", {"level": level, "shots_used": _shots_used, "search_time_ms": search_ms})
 
-	_camera_punch(26.0)
+	if OS.has_feature("mobile"):
+		Input.vibrate_handheld(60)
 	target.flash(Color(1.0, 0.2, 0.15, 0.85))
 	hud.show_message("TARGET HIT", Color(1.0, 0.35, 0.25), 1.3)
 
@@ -120,7 +122,6 @@ func _on_target_hit(target: CrowdCharacter) -> void:
 func _on_wrong_hit(character: CrowdCharacter) -> void:
 	Analytics.log_event("wrong_shot", {"dna": character.dna.to_dict()})
 	character.flash(Color(1.0, 0.55, 0.1, 0.8))
-	_camera_punch(12.0)
 	_consume_bullet()
 	if ammo > 0:
 		hud.show_message("WRONG TARGET", Color(1.0, 0.6, 0.2))
@@ -130,7 +131,6 @@ func _on_wrong_hit(character: CrowdCharacter) -> void:
 
 func _on_empty_shot() -> void:
 	Analytics.log_event("empty_shot", {})
-	_camera_punch(9.0)
 	_consume_bullet()
 	if ammo > 0:
 		hud.show_message("MISS", Color(0.85, 0.85, 0.9))
@@ -169,14 +169,6 @@ func _screen_flash() -> void:
 	flash_rect.modulate.a = 0.5
 	var tween := create_tween()
 	tween.tween_property(flash_rect, "modulate:a", 0.0, 0.12)
-
-
-func _camera_punch(strength: float) -> void:
-	var dir := Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
-	camera.offset = dir * strength
-	var tween := create_tween()
-	tween.tween_property(camera, "offset", Vector2.ZERO, 0.28)\
-		.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
 ## Waits in real time regardless of Engine.time_scale (for slow-mo sequences).

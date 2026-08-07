@@ -1,11 +1,10 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/game_manager.gd" id="1_gm"]
 [ext_resource type="Script" path="res://scripts/gameplay/backdrop.gd" id="2_bd"]
 [ext_resource type="Script" path="res://scripts/gameplay/crowd_manager.gd" id="3_cm"]
 [ext_resource type="Script" path="res://scripts/gameplay/aim_controller.gd" id="4_ac"]
-[ext_resource type="Script" path="res://scripts/gameplay/scope_vignette.gd" id="5_sv"]
-[ext_resource type="Script" path="res://scripts/gameplay/crosshair.gd" id="6_cr"]
+[ext_resource type="Script" path="res://scripts/gameplay/scope_overlay.gd" id="5_so"]
 [ext_resource type="Script" path="res://scripts/gameplay/target_manager.gd" id="7_tm"]
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="8_hd"]
 [ext_resource type="Script" path="res://scripts/ui/debug_panel.gd" id="9_dp"]
@@ -28,13 +27,9 @@ script = ExtResource("3_cm")
 [node name="AimController" type="Node2D" parent="." unique_id=527926931]
 script = ExtResource("4_ac")
 
-[node name="ScopeVignette" type="Node2D" parent="AimController" unique_id=766710637]
-z_index = 500
-script = ExtResource("5_sv")
-
-[node name="Crosshair" type="Node2D" parent="AimController" unique_id=714497430]
-z_index = 600
-script = ExtResource("6_cr")
+[node name="ScopeOverlay" type="CanvasLayer" parent="AimController" unique_id=766710637]
+layer = 4
+script = ExtResource("5_so")
 
 [node name="FlashLayer" type="CanvasLayer" parent="." unique_id=1278556868]
 layer = 6

@@ -6,8 +6,9 @@ const PLAZA := Rect2(60, 400, 960, 1360)
 
 
 func _draw() -> void:
-	# Street base.
-	draw_rect(Rect2(0, 0, 1080, 1920), Color(0.13, 0.15, 0.19))
+	# Street base — extends past the design rect so the scoped camera can pan
+	# to the play-area edges without showing void.
+	draw_rect(Rect2(-200, -200, 1480, 2320), Color(0.13, 0.15, 0.19))
 	# Plaza floor.
 	draw_rect(PLAZA, Color(0.2, 0.22, 0.27))
 	# Pavement grid.
