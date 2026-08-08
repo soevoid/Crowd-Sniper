@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/characters/crowd_male_01.png" id="1_tex"]
+[ext_resource type="Script" path="res://scripts/characters/crowd_character.gd" id="2_cc"]
+
+[node name="CrowdCharacter" type="Area2D"]
+script = ExtResource("2_cc")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]

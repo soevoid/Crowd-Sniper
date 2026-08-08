@@ -26,7 +26,8 @@ enum ScopeState { IDLE, ENTERING, AIMING, FIRED, EXITING }
 @export var normal_pan_deadzone := 0.0
 ## Glide time constant after releasing a pan; 0 disables (CH has no inertia).
 @export var normal_pan_inertia := 0.0
-## CH pans the camera toward the finger direction; enable for map-style drag.
+## Off (default): map-style drag — the world follows the finger (adapted;
+## natural for a flat 2D view). On: CH's 3D look — camera toward the finger.
 @export var normal_pan_invert := false
 
 ## World px of aim travel per screen px of drag while scoped (adapted: CH
@@ -49,6 +50,15 @@ enum ScopeState { IDLE, ENTERING, AIMING, FIRED, EXITING }
 ## World rect the camera view may show, at any zoom or aspect ratio. Enlarge
 ## this (plus the backdrop) for bigger searchable levels later.
 @export var camera_bounds := Rect2(-140, -80, 1360, 2140)
+## Searchable boundary: the area the fixed center crosshair can reach. The
+## camera center is clamped inside it (then view-clamped so nothing outside
+## the artwork shows). Every character must stand inside this rect.
+@export var search_min_x := 60.0
+@export var search_min_y := 380.0
+@export var search_max_x := 1020.0
+@export var search_max_y := 1740.0
+## Draws the searchable boundary outline (debug only; keep off in gameplay).
+@export var debug_draw_search_bounds := false
 ## Release = fire (CH behavior). Off = release just lowers the scope.
 @export var fire_on_release := true
 
@@ -80,6 +90,18 @@ var _glide_velocity := Vector2.ZERO
 
 func _ready() -> void:
 	overlay.visible = false
+	if debug_draw_search_bounds:
+		queue_redraw()
+
+
+func _draw() -> void:
+	if debug_draw_search_bounds:
+		draw_rect(search_rect(), Color(1.0, 0.3, 0.2, 0.8), false, 4.0)
+
+
+func search_rect() -> Rect2:
+	return Rect2(search_min_x, search_min_y,
+		search_max_x - search_min_x, search_max_y - search_min_y)
 
 
 func set_enabled(value: bool) -> void:
@@ -190,17 +212,18 @@ func _apply_drag(relative: Vector2) -> void:
 	_aim_target = _clamp_aim(_aim_target + relative * aim_sensitivity)
 
 
-## Normal-view search pan (CH: camera pans toward the finger direction).
+## Normal-view search pan. Default: the world follows the finger, so the
+## camera moves opposite the drag; invert for CH's camera-toward-finger look.
 func _apply_pan_drag(relative: Vector2) -> void:
 	_pan_accum += relative.length()
 	if _pan_accum < normal_pan_deadzone:
 		return
-	var step := relative * normal_pan_sensitivity * (-1.0 if normal_pan_invert else 1.0)
+	var step := relative * normal_pan_sensitivity * (1.0 if normal_pan_invert else -1.0)
 	if state == ScopeState.IDLE:
-		_pan_target = _clamp_view_center(_pan_target + step, 1.0)
+		_pan_target = _clamp_center(_pan_target + step, 1.0)
 	elif state == ScopeState.EXITING:
 		# Panning while the scope lowers keeps the search fluid.
-		_aim_target = _clamp_view_center(_aim_target + step, 1.0)
+		_aim_target = _clamp_center(_aim_target + step, 1.0)
 	if normal_pan_inertia > 0.0:
 		var dt := maxf(get_process_delta_time(), 0.001)
 		_glide_velocity = _glide_velocity.lerp(step / dt, 0.5)
@@ -269,7 +292,7 @@ func _process(delta: float) -> void:
 	var smooth := normal_pan_smooth_time if state == ScopeState.IDLE else aim_smooth_time
 	# Exponential smoothing toward the goal (ports CH's SmoothDamp feel).
 	_cam_center = _cam_center.lerp(_goal_center(zoom), 1.0 - exp(-dt / maxf(smooth, 0.001)))
-	_cam_center = _clamp_view_center(_cam_center, zoom)
+	_cam_center = _clamp_center(_cam_center, zoom)
 	camera.position = _cam_center
 	camera.zoom = Vector2(zoom, zoom)
 	camera.offset = _recoil_offset()
@@ -327,9 +350,17 @@ func _clamp_view_center(center: Vector2, zoom: float) -> Vector2:
 		_clamp_axis(center.y, camera_bounds.position.y + half.y, camera_bounds.end.y - half.y))
 
 
-## The aim point may go anywhere the fully-zoomed view center can reach.
+## Camera-center clamp: inside the searchable boundary, then view-clamped so
+## no camera position reveals space beyond the artwork.
+func _clamp_center(center: Vector2, zoom: float) -> Vector2:
+	center.x = clampf(center.x, search_min_x, search_max_x)
+	center.y = clampf(center.y, search_min_y, search_max_y)
+	return _clamp_view_center(center, zoom)
+
+
+## The aim point may go anywhere the fully-zoomed crosshair can reach.
 func _clamp_aim(point: Vector2) -> Vector2:
-	return _clamp_view_center(point, scope_zoom)
+	return _clamp_center(point, scope_zoom)
 
 
 static func _clamp_axis(value: float, low: float, high: float) -> float:

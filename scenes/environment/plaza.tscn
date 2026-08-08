@@ -1,0 +1,32 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/backgrounds/crowd_sniper_plaza.png" id="1_bg"]
+[ext_resource type="Script" path="res://scripts/environment/world_camera.gd" id="2_wc"]
+[ext_resource type="PackedScene" path="res://scenes/characters/crowd_character.tscn" id="3_cc"]
+[ext_resource type="Texture2D" path="res://assets/characters/crowd_female_01.png" id="4_fem"]
+
+[node name="GameplayRoot" type="Node2D"]
+
+[node name="BackgroundWorld" type="Node2D" parent="."]
+
+[node name="PlazaBackground" type="Sprite2D" parent="BackgroundWorld"]
+centered = false
+texture = ExtResource("1_bg")
+
+[node name="Characters" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="CrowdCharacter" parent="Characters" instance=ExtResource("3_cc")]
+position = Vector2(1584, 820)
+
+[node name="CrowdFemale01" parent="Characters" instance=ExtResource("3_cc")]
+position = Vector2(1720, 820)
+
+[node name="WorldCamera" type="Camera2D" parent="."]
+position = Vector2(1584, 672)
+script = ExtResource("2_wc")
+
+[node name="Sprite2D" parent="Characters/CrowdFemale01" index="0"]
+texture = ExtResource("4_fem")
+
+[editable path="Characters/CrowdFemale01"]

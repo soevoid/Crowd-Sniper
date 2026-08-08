@@ -36,20 +36,18 @@ func _run() -> void:
 	_check(game.level == 2, "target hit advances to level 2 (got level %d)" % game.level)
 	_check(_has_event("level_complete"), "level_complete event recorded")
 
-	# --- Level 2: empty shot, wrong shot, empty shot -> fail -> retry. ---
+	# --- Level 2: three non-target shots -> fail -> retry. ---
 	_verify_crowd_validity()
 	var ammo0 := game.ammo
 	await _shoot_at(_empty_point())
 	await _wait_searching()
-	_check(game.ammo == ammo0 - 1, "empty shot consumes a bullet (%d -> %d)" % [ammo0, game.ammo])
-	_check(_has_event("empty_shot"), "empty_shot event recorded")
+	_check(game.ammo == ammo0 - 1, "non-target shot consumes a bullet (%d -> %d)" % [ammo0, game.ammo])
+	_check(_has_event("wrong_shot"), "wrong_shot event recorded for any non-target shot")
+	_check(game.level == 2, "non-target shot does not end the level")
 
-	var wrong := _non_target_character()
-	await _shoot_at(_aim_point_of(wrong))
+	await _shoot_at(_empty_point())
 	await _wait_searching()
-	_check(game.ammo == ammo0 - 2, "wrong-target shot consumes a bullet")
-	_check(_has_event("wrong_shot"), "wrong_shot event recorded")
-	_check(game.level == 2, "wrong shot does not end the level")
+	_check(game.ammo == ammo0 - 2, "second non-target shot consumes a bullet")
 
 	await _shoot_at(_empty_point())
 	# Ammo now 0 -> fail -> same level restarts with a fresh crowd.
@@ -63,6 +61,33 @@ func _run() -> void:
 	await _shoot_at(_target_aim_point())
 	await _wait_searching()
 	_check(game.level == 3, "retry then target hit advances to level 3")
+
+	# --- CrowdSpot placement: temporary markers injected, then removed. ---
+	var spots_node: Node2D = game.get_node("CrowdSpots")
+	for i in 30:
+		var marker := Marker2D.new()
+		marker.position = Vector2(120.0 + (i % 6) * 150.0, 500.0 + int(i / 6.0) * 220.0)
+		spots_node.add_child(marker)
+	# All markers (scene-designed + temporary) are legitimate standing spots.
+	var spot_positions: Array[Vector2] = []
+	for child in spots_node.get_children():
+		if child is Marker2D:
+			spot_positions.append(child.position)
+	game.start_level(game.level)
+	await _wait_searching()
+	var off_spot := 0
+	for character in game.crowd.characters:
+		if not spot_positions.has(character.home_position):
+			off_spot += 1
+	_check(off_spot == 0, "all characters stand exactly on CrowdSpot markers (%d off)" % off_spot)
+	_verify_crowd_validity()
+	for child in spots_node.get_children():
+		child.queue_free()
+	await get_tree().process_frame
+	game.start_level(game.level)
+	await _wait_searching()
+	_check(game.crowd.characters.size() == 1,
+		"no spots -> generator placement still works")
 
 	# --- Procedural config sanity. ---
 	for n in [10, 20]:
@@ -87,20 +112,20 @@ func _test_normal_pan() -> void:
 	_press(Vector2(540, 900))
 	await _drag_by(Vector2(-360, 0), 8)
 	await _real(0.3)
-	_check(game.camera.position.x < cam0.x - 40.0,
-		"drag left pans camera left (CH direction, moved %.0f px)" % (game.camera.position.x - cam0.x))
-	var x_left: float = game.camera.position.x
+	_check(game.camera.position.x > cam0.x + 40.0,
+		"drag left pans camera right (map-style, moved %.0f px)" % (game.camera.position.x - cam0.x))
+	var x_right: float = game.camera.position.x
 	await _drag_by(Vector2(720, 0), 8)
 	await _real(0.3)
-	_check(game.camera.position.x > x_left + 40.0, "drag right pans camera right")
+	_check(game.camera.position.x < x_right - 40.0, "drag right pans camera left")
 	var y0: float = game.camera.position.y
 	await _drag_by(Vector2(0, -400), 8)
 	await _real(0.3)
-	_check(game.camera.position.y < y0 - 20.0, "drag up pans camera up")
+	_check(game.camera.position.y > y0 + 20.0, "drag up pans camera down")
 	var y1: float = game.camera.position.y
 	await _drag_by(Vector2(0, 800), 8)
 	await _real(0.3)
-	_check(game.camera.position.y > y1 + 20.0, "drag down pans camera down")
+	_check(game.camera.position.y < y1 - 20.0, "drag down pans camera up")
 	_release_finger()
 	await _real(0.4)
 	_check(_count_events("shot") == shots0, "pan release does not fire")
@@ -108,19 +133,20 @@ func _test_normal_pan() -> void:
 	_check(is_equal_approx(game.camera.zoom.x, 1.0), "pan does not zoom")
 	_check(game.ammo == game.current_config.ammo, "pan consumes no ammo")
 
-	# Bounds: yank far past every edge.
+	# Bounds: yank far past every edge (map-style: drag towards top-left
+	# pushes the camera to the bottom-right corner and vice versa).
 	_press(Vector2(540, 900))
 	await _drag_by(Vector2(-20000, -20000), 6)
 	await _real(0.4)
 	var half: Vector2 = game.get_viewport().get_visible_rect().size * 0.5 / game.camera.zoom.x
-	var tl: Vector2 = game.camera.position - half
-	_check(tl.x >= aim.camera_bounds.position.x - 1.0 and tl.y >= aim.camera_bounds.position.y - 1.0,
-		"pan clamps at top-left bounds")
-	await _drag_by(Vector2(40000, 40000), 6)
-	await _real(0.4)
 	var br: Vector2 = game.camera.position + half
 	_check(br.x <= aim.camera_bounds.end.x + 1.0 and br.y <= aim.camera_bounds.end.y + 1.0,
 		"pan clamps at bottom-right bounds")
+	await _drag_by(Vector2(40000, 40000), 6)
+	await _real(0.4)
+	var tl: Vector2 = game.camera.position - half
+	_check(tl.x >= aim.camera_bounds.position.x - 1.0 and tl.y >= aim.camera_bounds.position.y - 1.0,
+		"pan clamps at top-left bounds")
 	_release_finger()
 	await _real(0.2)
 
@@ -172,10 +198,11 @@ func _test_scope_mechanics() -> void:
 	_check(is_equal_approx(game.camera.zoom.x, 1.0), "scope exits back to normal view")
 	await _screenshot("normal")
 
-	# Normal search panning still works after the scope.
+	# Normal search panning still works after the scope (map-style: dragging
+	# left moves the camera right, away from the left bound it ended near).
 	var cam2: Vector2 = game.camera.position
 	_press(Vector2(540, 900))
-	await _drag_by(Vector2(300, 0), 6)
+	await _drag_by(Vector2(-300, 0), 6)
 	await _real(0.3)
 	_check(game.camera.position.x > cam2.x + 20.0, "world panning works again after scope")
 	_release_finger()
@@ -202,8 +229,8 @@ func _verify_crowd_validity() -> void:
 			matches += 1
 	_check(matches == 1, "exactly one exact target in crowd of %d (found %d)" %
 		[game.crowd.characters.size(), matches])
-	_check(game.crowd.characters.size() == game.current_config.crowd_count,
-		"crowd size matches config (%d)" % game.current_config.crowd_count)
+	_check(game.crowd.characters.size() == 1,
+		"world contains only the target character (decoys live in the art)")
 
 
 func _target_aim_point() -> Vector2:
@@ -213,13 +240,6 @@ func _target_aim_point() -> Vector2:
 func _aim_point_of(character: CrowdCharacter) -> Vector2:
 	# Chest center: feet position minus half body height.
 	return character.position + Vector2(0, -90.0 * character.scale.x)
-
-
-func _non_target_character() -> CrowdCharacter:
-	for character in game.crowd.characters:
-		if character != game.crowd.target_character:
-			return character
-	return null
 
 
 ## A reachable aim point as far from every character as possible, so a shot

@@ -16,10 +16,28 @@ func build(data: LevelGenerator.LevelData) -> void:
 	for i in data.crowd_dnas.size():
 		var character := CrowdCharacter.new()
 		add_child(character)
-		character.setup(data.crowd_dnas[i], data.positions[i], data.config.character_scale)
+		character.setup(data.crowd_dnas[i], data.positions[i],
+			data.config.character_scale * _depth_multiplier(data.positions[i].y))
 		characters.append(character)
 		if i == data.target_index:
 			target_character = character
+
+
+const DEPTH_FAR := 0.55
+const DEPTH_MID := 0.80
+const DEPTH_NEAR := 1.15
+
+
+## Perspective multiplier from the feet Y across the walkable area: far edge
+## small, near edge large, smooth through the middle baseline, clamped so no
+## one becomes extreme. Applied only to world crowd characters — the target
+## portrait and HUD never go through this path.
+func _depth_multiplier(feet_y: float) -> float:
+	var area := LevelGenerator.PLAY_AREA
+	var t := clampf(inverse_lerp(area.position.y, area.end.y, feet_y), 0.0, 1.0)
+	if t < 0.5:
+		return lerpf(DEPTH_FAR, DEPTH_MID, t * 2.0)
+	return lerpf(DEPTH_MID, DEPTH_NEAR, (t - 0.5) * 2.0)
 
 
 func clear() -> void:

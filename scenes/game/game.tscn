@@ -1,5 +1,6 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
+[ext_resource type="Script" path="res://scripts/gameplay/crowd_spots.gd" id="0_cs"]
 [ext_resource type="Script" path="res://scripts/gameplay/game_manager.gd" id="1_gm"]
 [ext_resource type="Script" path="res://scripts/gameplay/backdrop.gd" id="2_bd"]
 [ext_resource type="Script" path="res://scripts/gameplay/crowd_manager.gd" id="3_cm"]
@@ -21,6 +22,54 @@ position = Vector2(540, 960)
 
 [node name="Crowd" type="Node2D" parent="." unique_id=710344583]
 script = ExtResource("3_cm")
+
+[node name="CrowdSpots" type="Node2D" parent="."]
+script = ExtResource("0_cs")
+
+[node name="CrowdSpot01" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(81.9, 723.7)
+
+[node name="CrowdSpot03" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(628.6, 711.4)
+
+[node name="CrowdSpot05" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(1576.9, 765.6)
+
+[node name="CrowdSpot07" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(-154.6, 861.8)
+
+[node name="CrowdSpot09" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(522.7, 866.7)
+
+[node name="CrowdSpot11" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(1155.7, 948.1)
+
+[node name="CrowdSpot13" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(-297.5, 1012.2)
+
+[node name="CrowdSpot15" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(480.9, 1031.9)
+
+[node name="CrowdSpot17" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(1269.0, 1135.5)
+
+[node name="CrowdSpot19" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(-159.5, 1197.1)
+
+[node name="CrowdSpot21" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(734.6, 1241.5)
+
+[node name="CrowdSpot24" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(-344.2, 1384.5)
+
+[node name="CrowdSpot26" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(584.3, 1416.5)
+
+[node name="CrowdSpot29" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(-519.1, 1579.2)
+
+[node name="CrowdSpot31" type="Marker2D" parent="CrowdSpots"]
+position = Vector2(456.2, 1618.7)
 
 [node name="Effects" type="Node2D" parent="." unique_id=752265999]
 
