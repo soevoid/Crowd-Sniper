@@ -1,58 +1,34 @@
 extends Node
 ## Dev-only scripted playthrough, enabled via CROWD_SNIPER_AUTOTEST=1.
-## Drives the AimController exactly like a finger would (press -> scope zooms
-## in -> drag onto the point -> settle -> release fires) and asserts the full
-## loop: scope mechanics (cancel, fire gating, camera bounds), correct hit ->
-## next level, empty shot, wrong-target shot, ammo depletion -> fail -> retry,
-## and crowd validity.
+## Synthesizes real touch events (Viewport.push_input) to exercise the full
+## input path: normal-view world panning (search), AIM-button scope raise,
+## zoom-gated fire-on-release, then the level loop: correct hit -> next
+## level, empty shot, wrong shot, ammo depletion -> fail -> retry, and
+## crowd validity.
 
 var game: GameManager
 var passed := 0
 var failed := 0
+var _finger := Vector2.ZERO
 
 
 func _ready() -> void:
 	game = get_parent() as GameManager
+	# Headless runs default to a 1920x1080 landscape window, which breaks the
+	# portrait canvas (and thus pan bounds). Force the design window size.
+	get_window().size = Vector2i(540, 960)
 	_run.call_deferred()
 
 
 func _run() -> void:
 	print("[AutoTest] === scripted playthrough starting ===")
 
-	# --- Level 1: crowd sanity, then scope mechanics. ---
 	await _wait_searching()
 	_check(game.level == 1, "level 1 reaches SEARCHING after intro")
 	_verify_crowd_validity()
 
-	var aim := game.aim
-	var shots_before := _count_events("shot")
-	var ammo_full := game.ammo
-	aim._begin_scope(Vector2(540, 960))
-	_check(aim.overlay.visible, "scope overlay appears on touch down")
-	_check(not aim.can_fire, "cannot fire before zoom-in completes")
-	aim._handle_release()  # quick tap: released before the zoom finished
-	await _real(0.6)
-	_check(_count_events("shot") == shots_before, "quick tap does not fire")
-	_check(game.ammo == ammo_full, "quick tap does not consume ammo")
-	_check(is_equal_approx(game.camera.zoom.x, 1.0), "camera returns to normal zoom after cancel")
-	_check(not aim.overlay.visible, "scope overlay hidden after cancel")
-
-	aim._begin_scope(Vector2(540, 960))
-	_check(await _wait_can_fire(), "zoom-in completes and enables firing")
-	_check(absf(game.camera.zoom.x - aim.scope_zoom) < 0.01,
-		"scoped zoom reaches scope_zoom (%.2f vs %.2f)" % [game.camera.zoom.x, aim.scope_zoom])
-	await _screenshot("scoped")
-	aim._apply_drag(Vector2(-100000, -100000))  # yank far past the boundary
-	await _real(0.5)
-	var half_view: Vector2 = game.get_viewport().get_visible_rect().size * 0.5 / game.camera.zoom.x
-	var top_left: Vector2 = game.camera.position - half_view
-	_check(top_left.x >= aim.camera_bounds.position.x - 1.0
-		and top_left.y >= aim.camera_bounds.position.y - 1.0,
-		"camera view stays inside bounds when dragging beyond them")
-	aim._exit_scope()  # lower the scope without firing
-	await _real(0.6)
-	_check(is_equal_approx(game.camera.zoom.x, 1.0), "scope exits back to normal view")
-	await _screenshot("normal")
+	await _test_normal_pan()
+	await _test_scope_mechanics()
 
 	# --- Level 1 kill: shoot the target. ---
 	await _shoot_at(_target_aim_point())
@@ -100,6 +76,110 @@ func _run() -> void:
 		print("[AutoTest] ALL CHECKS PASSED")
 	else:
 		printerr("[AutoTest] %d CHECKS FAILED" % failed)
+
+
+## Normal view: dragging the playfield pans the camera; release never fires.
+func _test_normal_pan() -> void:
+	var aim := game.aim
+	var shots0 := _count_events("shot")
+	var cam0: Vector2 = game.camera.position
+
+	_press(Vector2(540, 900))
+	await _drag_by(Vector2(-360, 0), 8)
+	await _real(0.3)
+	_check(game.camera.position.x < cam0.x - 40.0,
+		"drag left pans camera left (CH direction, moved %.0f px)" % (game.camera.position.x - cam0.x))
+	var x_left: float = game.camera.position.x
+	await _drag_by(Vector2(720, 0), 8)
+	await _real(0.3)
+	_check(game.camera.position.x > x_left + 40.0, "drag right pans camera right")
+	var y0: float = game.camera.position.y
+	await _drag_by(Vector2(0, -400), 8)
+	await _real(0.3)
+	_check(game.camera.position.y < y0 - 20.0, "drag up pans camera up")
+	var y1: float = game.camera.position.y
+	await _drag_by(Vector2(0, 800), 8)
+	await _real(0.3)
+	_check(game.camera.position.y > y1 + 20.0, "drag down pans camera down")
+	_release_finger()
+	await _real(0.4)
+	_check(_count_events("shot") == shots0, "pan release does not fire")
+	_check(not aim.overlay.visible, "pan does not raise the scope")
+	_check(is_equal_approx(game.camera.zoom.x, 1.0), "pan does not zoom")
+	_check(game.ammo == game.current_config.ammo, "pan consumes no ammo")
+
+	# Bounds: yank far past every edge.
+	_press(Vector2(540, 900))
+	await _drag_by(Vector2(-20000, -20000), 6)
+	await _real(0.4)
+	var half: Vector2 = game.get_viewport().get_visible_rect().size * 0.5 / game.camera.zoom.x
+	var tl: Vector2 = game.camera.position - half
+	_check(tl.x >= aim.camera_bounds.position.x - 1.0 and tl.y >= aim.camera_bounds.position.y - 1.0,
+		"pan clamps at top-left bounds")
+	await _drag_by(Vector2(40000, 40000), 6)
+	await _real(0.4)
+	var br: Vector2 = game.camera.position + half
+	_check(br.x <= aim.camera_bounds.end.x + 1.0 and br.y <= aim.camera_bounds.end.y + 1.0,
+		"pan clamps at bottom-right bounds")
+	_release_finger()
+	await _real(0.2)
+
+	# Touches starting on HUD chrome must not pan the world.
+	var cam1: Vector2 = game.camera.position
+	_press(Vector2(300, 90))  # top stats panel
+	await _drag_by(Vector2(-300, 200), 6)
+	await _real(0.3)
+	_check(game.camera.position.distance_to(cam1) < 2.0, "HUD touches do not pan the world")
+	_release_finger()
+	await _real(0.2)
+
+
+## AIM button: quick tap cancels, zoom gates firing and preserves the
+## searched area, bounds hold, panning resumes afterwards.
+func _test_scope_mechanics() -> void:
+	var aim := game.aim
+	var btn := HUD.AIM_BUTTON_RECT.get_center()
+	var shots0 := _count_events("shot")
+	var searched: Vector2 = game.camera.position
+
+	_press(btn)
+	_check(aim.overlay.visible, "scope overlay appears on AIM press")
+	_check(not aim.can_fire, "cannot fire before zoom-in completes")
+	_release_finger()  # quick tap: released before the zoom finished
+	await _real(0.6)
+	_check(_count_events("shot") == shots0, "quick AIM tap does not fire")
+	_check(game.ammo == game.current_config.ammo, "quick AIM tap does not consume ammo")
+	_check(is_equal_approx(game.camera.zoom.x, 1.0), "camera returns to normal zoom after cancel")
+	_check(not aim.overlay.visible, "scope overlay hidden after cancel")
+
+	_press(btn)
+	_check(await _wait_can_fire(), "zoom-in completes and enables firing")
+	_check(absf(game.camera.zoom.x - aim.scope_zoom) < 0.01,
+		"scoped zoom reaches scope_zoom (%.2f vs %.2f)" % [game.camera.zoom.x, aim.scope_zoom])
+	_check(game.camera.position.distance_to(searched) < 60.0,
+		"scope zooms into the searched area (drift %.0f px)" %
+		game.camera.position.distance_to(searched))
+	await _screenshot("scoped")
+	await _drag_by(Vector2(-100000, -100000), 4)  # fine-aim far past the boundary
+	await _real(0.5)
+	var half: Vector2 = game.get_viewport().get_visible_rect().size * 0.5 / game.camera.zoom.x
+	var tl: Vector2 = game.camera.position - half
+	_check(tl.x >= aim.camera_bounds.position.x - 1.0 and tl.y >= aim.camera_bounds.position.y - 1.0,
+		"scoped view stays inside bounds when dragging beyond them")
+	aim._exit_scope()  # lower the scope without firing
+	_release_finger()
+	await _real(0.6)
+	_check(is_equal_approx(game.camera.zoom.x, 1.0), "scope exits back to normal view")
+	await _screenshot("normal")
+
+	# Normal search panning still works after the scope.
+	var cam2: Vector2 = game.camera.position
+	_press(Vector2(540, 900))
+	await _drag_by(Vector2(300, 0), 6)
+	await _real(0.3)
+	_check(game.camera.position.x > cam2.x + 20.0, "world panning works again after scope")
+	_release_finger()
+	await _real(0.2)
 
 
 func _check(condition: bool, label: String) -> void:
@@ -160,15 +240,46 @@ func _empty_point() -> Vector2:
 	return best
 
 
-## Simulates a finger: press (scope raises), wait for full zoom, put the aim
-## on the point, let the camera settle, release to fire.
+## Simulates the sniper loop: press AIM, wait for full zoom, put the aim on
+## the point (fine-adjust shortcut), settle, release to fire.
 func _shoot_at(world_point: Vector2) -> void:
 	var aim := game.aim
-	aim._begin_scope(aim.get_canvas_transform() * world_point)
+	_press(HUD.AIM_BUTTON_RECT.get_center())
 	_check(await _wait_can_fire(), "scope ready to fire before the shot")
 	aim._aim_target = aim._clamp_aim(world_point)
 	await _real(0.5)
-	aim._handle_release()
+	_release_finger()
+
+
+## -- Synthetic touch input (goes through the real Viewport input path). --
+
+func _press(pos: Vector2) -> void:
+	_finger = pos
+	var e := InputEventScreenTouch.new()
+	e.index = 0
+	e.position = pos
+	e.pressed = true
+	game.get_viewport().push_input(e, true)  # positions are canvas coords
+
+
+func _drag_by(total: Vector2, steps: int) -> void:
+	var step := total / steps
+	for i in steps:
+		_finger += step
+		var e := InputEventScreenDrag.new()
+		e.index = 0
+		e.position = _finger
+		e.relative = step
+		game.get_viewport().push_input(e, true)
+		await get_tree().process_frame
+
+
+func _release_finger() -> void:
+	var e := InputEventScreenTouch.new()
+	e.index = 0
+	e.position = _finger
+	e.pressed = false
+	game.get_viewport().push_input(e, true)
 
 
 func _wait_can_fire() -> bool:

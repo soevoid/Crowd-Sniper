@@ -28,6 +28,8 @@ var _search_start_ms := 0
 
 func _ready() -> void:
 	aim.camera = camera
+	aim.hud = hud
+	aim.ui_blockers = [hud.is_point_on_blocking_ui, debug_panel.is_point_on_ui]
 	aim.shot_fired.connect(_on_shot_fired)
 	target_manager.intro_finished.connect(_on_intro_finished)
 	debug_panel.restart_requested.connect(func () -> void: start_level(level))
@@ -56,6 +58,7 @@ func start_level(n: int) -> void:
 	_shots_used = 0
 	state = State.INTRO
 	aim.enabled = false
+	aim.reset_view()  # new level: recenter behind the intro card
 
 	var data := _generator.generate(current_config)
 	current_target_dna = data.target_dna

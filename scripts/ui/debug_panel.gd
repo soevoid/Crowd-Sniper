@@ -8,6 +8,7 @@ signal next_level_requested
 signal regenerate_requested
 
 var _panel: PanelContainer
+var _toggle: Button
 var _stats: Label
 var _game: Node
 
@@ -15,12 +16,12 @@ var _game: Node
 func _ready() -> void:
 	layer = 10
 
-	var toggle := Button.new()
-	toggle.text = "DBG"
-	toggle.position = Vector2(960, 1830)
-	toggle.size = Vector2(100, 70)
-	toggle.pressed.connect(func () -> void: _panel.visible = not _panel.visible)
-	add_child(toggle)
+	_toggle = Button.new()
+	_toggle.text = "DBG"
+	_toggle.position = Vector2(960, 1830)
+	_toggle.size = Vector2(100, 70)
+	_toggle.pressed.connect(func () -> void: _panel.visible = not _panel.visible)
+	add_child(_toggle)
 
 	_panel = PanelContainer.new()
 	_panel.position = Vector2(24, 1310)
@@ -59,6 +60,13 @@ func _add_button(parent: Node, text: String, action: Callable) -> void:
 	button.custom_minimum_size = Vector2(140, 80)
 	button.pressed.connect(action)
 	parent.add_child(button)
+
+
+## True when the point is over debug UI that should block world panning.
+func is_point_on_ui(point: Vector2) -> bool:
+	if Rect2(_toggle.position, _toggle.size).has_point(point):
+		return true
+	return _panel.visible and Rect2(_panel.position, _panel.size).has_point(point)
 
 
 func attach(game: Node) -> void:
